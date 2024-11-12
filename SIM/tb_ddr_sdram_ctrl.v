@@ -18,7 +18,15 @@ wire               error;
 // -----------------------------------------------------------------------------------------------------------------------------
 // simulation control
 // -----------------------------------------------------------------------------------------------------------------------------
-initial $dumpvars(0, tb_ddr_sdram_ctrl);
+initial
+begin: fsdbdump
+    string fsdb_name;
+    fsdb_name = "tb_ddr_sdram_ctrl.fsdb";
+    $fsdbDumpfile(fsdb_name);
+    $fsdbDumpvars;
+    $fsdbDumpMDA();
+end
+
 initial begin
     #200000000;              // simulation for 200us
     if(error)
@@ -107,6 +115,7 @@ axi_self_test_master #(
 ) axi_m_i (
     .rstn        ( rstn        ),
     .clk         ( clk         ),
+
     .awvalid     ( awvalid     ),
     .awready     ( awready     ),
     .awaddr      ( awaddr      ),
@@ -125,6 +134,7 @@ axi_self_test_master #(
     .rready      ( rready      ),
     .rlast       ( rlast       ),
     .rdata       ( rdata       ),
+
     .error       ( error       ),
     .error_cnt   (             )
 );
@@ -145,6 +155,7 @@ ddr_sdram_ctrl #(
     .rstn_async  ( rstn_async  ),
     .drv_clk     ( clk300m     ),
     .rstn        ( rstn        ),
+
     .clk         ( clk         ),
     .awvalid     ( awvalid     ),
     .awready     ( awready     ),
@@ -164,6 +175,7 @@ ddr_sdram_ctrl #(
     .rready      ( rready      ),
     .rlast       ( rlast       ),
     .rdata       ( rdata       ),
+
     .ddr_ck_p    ( ddr_ck_p    ),
     .ddr_ck_n    ( ddr_ck_n    ),
     .ddr_cke     ( ddr_cke     ),
