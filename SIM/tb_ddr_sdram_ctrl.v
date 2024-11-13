@@ -199,18 +199,18 @@ micron_ddr_sdram_model #(
     .COL_BITS    ( COL_BITS    ),
     .DQ_LEVEL    ( DQ_LEVEL    )
 ) ddr_model_i (
-    .Clk         ( ddr_ck_p    ),
-    .Clk_n       ( ddr_ck_n    ),
-    .Cke         ( ddr_cke     ),
-    .Cs_n        ( ddr_cs_n    ),
-    .Ras_n       ( ddr_ras_n   ),
-    .Cas_n       ( ddr_cas_n   ),
-    .We_n        ( ddr_we_n    ),
-    .Ba          ( ddr_ba      ),
-    .Addr        ( ddr_a       ),
-    .Dm          ( ddr_dm      ),
-    .Dqs         ( ddr_dqs     ),
-    .Dq          ( ddr_dq      )
+    .Clk         ( ddr_ck_p    ),   /// clk
+    .Clk_n       ( ddr_ck_n    ),   /// clk
+    .Cke         ( ddr_cke     ),   /// clock enable
+    .Cs_n        ( ddr_cs_n    ),   /// chip select
+    .Ras_n       ( ddr_ras_n   ),   /// row address select
+    .Cas_n       ( ddr_cas_n   ),   /// col address select
+    .We_n        ( ddr_we_n    ),   /// write enable
+    .Ba          ( ddr_ba      ),   /// bank address
+    .Addr        ( ddr_a       ),   /// address
+    .Dm          ( ddr_dm      ),   /// data mask
+    .Dqs         ( ddr_dqs     ),   /// data strobe
+    .Dq          ( ddr_dq      )    /// data
 );
 
 endmodule
