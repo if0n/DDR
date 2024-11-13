@@ -56,8 +56,8 @@ localparam [7:0] RBURST_LEN = 8'd7;
 // -------------------------------------------------------------------------------------
 //   AXI4 parameters
 // -------------------------------------------------------------------------------------
-localparam  A_WIDTH = BA_BITS+ROW_BITS+COL_BITS+DQ_LEVEL-1;
-localparam  D_WIDTH = (8<<DQ_LEVEL);
+localparam  AW = BA_BITS+ROW_BITS+COL_BITS+DQ_LEVEL-1;
+localparam  DW = (8<<DQ_LEVEL);
 
 // -------------------------------------------------------------------------------------
 //   driving clock and reset generate
@@ -85,119 +85,120 @@ wire               rstn;
 wire               clk;
 wire               awvalid;
 wire               awready;
-wire [A_WIDTH-1:0] awaddr;
+wire [AW-1:0]      awaddr;
 wire [        7:0] awlen;
 wire               wvalid;
 wire               wready;
 wire               wlast;
-wire [D_WIDTH-1:0] wdata;
+wire [DW-1:0]      wdata;
 wire               bvalid;
 wire               bready;
 wire               arvalid;
 wire               arready;
-wire [A_WIDTH-1:0] araddr;
+wire [AW-1:0]      araddr;
 wire [        7:0] arlen;
 wire               rvalid;
 wire               rready;
 wire               rlast;
-wire [D_WIDTH-1:0] rdata;
+wire [DW-1:0]      rdata;
 
 // -------------------------------------------------------------------------------------
 //   AXI4 master for testing
 // -------------------------------------------------------------------------------------
 axi_self_test_master #(
-    .A_WIDTH_TEST( 12          ),
-    .A_WIDTH     ( A_WIDTH     ),
-    .D_WIDTH     ( D_WIDTH     ),
-    .D_LEVEL     ( DQ_LEVEL    ),
-    .WBURST_LEN  ( WBURST_LEN  ),
-    .RBURST_LEN  ( RBURST_LEN  )
+    .AW_TEST        ( 12          ),
+    .AW             ( AW          ),
+    .DW             ( DW          ),
+    .D_LEVEL        ( DQ_LEVEL    ),
+    .WBURST_LEN     ( WBURST_LEN  ),
+    .RBURST_LEN     ( RBURST_LEN  )
 ) axi_m_i (
-    .rstn        ( rstn        ),
-    .clk         ( clk         ),
+    .rst_n          ( rstn        ),
+    .clk            ( clk         ),
 
-    .awvalid     ( awvalid     ),
-    .awready     ( awready     ),
-    .awaddr      ( awaddr      ),
-    .awlen       ( awlen       ),
-    .wvalid      ( wvalid      ),
-    .wready      ( wready      ),
-    .wlast       ( wlast       ),
-    .wdata       ( wdata       ),
-    .bvalid      ( bvalid      ),
-    .bready      ( bready      ),
-    .arvalid     ( arvalid     ),
-    .arready     ( arready     ),
-    .araddr      ( araddr      ),
-    .arlen       ( arlen       ),
-    .rvalid      ( rvalid      ),
-    .rready      ( rready      ),
-    .rlast       ( rlast       ),
-    .rdata       ( rdata       ),
+    .o_awvalid     ( awvalid     ),
+    .i_awready     ( awready     ),
+    .o_awaddr      ( awaddr      ),
+    .o_awlen       ( awlen       ),
+    .o_wvalid      ( wvalid      ),
+    .i_wready      ( wready      ),
+    .o_wlast       ( wlast       ),
+    .o_wdata       ( wdata       ),
+    .i_bvalid      ( bvalid      ),
+    .o_bready      ( bready      ),
+    .o_arvalid     ( arvalid     ),
+    .i_arready     ( arready     ),
+    .o_araddr      ( araddr      ),
+    .o_arlen       ( arlen       ),
+    .i_rvalid      ( rvalid      ),
+    .o_rready      ( rready      ),
+    .i_rlast       ( rlast       ),
+    .i_rdata       ( rdata       ),
 
-    .error       ( error       ),
-    .error_cnt   (             )
+    .o_error       ( error       ),
+    .o_error_cnt   (             )
 );
 
 // -------------------------------------------------------------------------------------
 //   DDR-SDRAM controller
 // -------------------------------------------------------------------------------------
 ddr_sdram_ctrl #(
-    .READ_BUFFER ( 0           ),
-    .BA_BITS     ( BA_BITS     ),
-    .ROW_BITS    ( ROW_BITS    ),
-    .COL_BITS    ( COL_BITS    ),
-    .DQ_LEVEL    ( DQ_LEVEL    ),  // x8
-    .tREFC       ( 10'd512     ),
-    .tW2I        ( 8'd6        ),
-    .tR2I        ( 8'd6        )
+    .READ_BUFFER    ( 0           ),
+    .BA_BITS        ( BA_BITS     ),    /// 2
+    .ROW_BITS       ( ROW_BITS    ),    /// 13
+    .COL_BITS       ( COL_BITS    ),    /// 11
+    .DQ_LEVEL       ( DQ_LEVEL    ),    /// 1
+    .tREFC          ( 10'd512     ),
+    .tW2I           ( 8'd6        ),
+    .tR2I           ( 8'd6        )
 ) ddr_sdram_ctrl_i (
-    .rstn_async  ( rstn_async  ),
-    .drv_clk     ( clk300m     ),
-    .rstn        ( rstn        ),
+    .i_rstn_async   ( rstn_async  ),
+    .i_drv_clk      ( clk300m     ),
 
-    .clk         ( clk         ),
-    .awvalid     ( awvalid     ),
-    .awready     ( awready     ),
-    .awaddr      ( awaddr      ),
-    .awlen       ( awlen       ),
-    .wvalid      ( wvalid      ),
-    .wready      ( wready      ),
-    .wlast       ( wlast       ),
-    .wdata       ( wdata       ),
-    .bvalid      ( bvalid      ),
-    .bready      ( bready      ),
-    .arvalid     ( arvalid     ),
-    .arready     ( arready     ),
-    .araddr      ( araddr      ),
-    .arlen       ( arlen       ),
-    .rvalid      ( rvalid      ),
-    .rready      ( rready      ),
-    .rlast       ( rlast       ),
-    .rdata       ( rdata       ),
+    .rst_n          ( rstn        ),
+    .clk            ( clk         ),
 
-    .ddr_ck_p    ( ddr_ck_p    ),
-    .ddr_ck_n    ( ddr_ck_n    ),
-    .ddr_cke     ( ddr_cke     ),
-    .ddr_cs_n    ( ddr_cs_n    ),
-    .ddr_ras_n   ( ddr_ras_n   ),
-    .ddr_cas_n   ( ddr_cas_n   ),
-    .ddr_we_n    ( ddr_we_n    ),
-    .ddr_ba      ( ddr_ba      ),
-    .ddr_a       ( ddr_a       ),
-    .ddr_dm      ( ddr_dm      ),
-    .ddr_dqs     ( ddr_dqs     ),
-    .ddr_dq      ( ddr_dq      )    
+    .i_awvalid      ( awvalid     ),
+    .o_awready      ( awready     ),
+    .i_awaddr       ( awaddr      ),
+    .i_awlen        ( awlen       ),
+    .i_wvalid       ( wvalid      ),
+    .o_wready       ( wready      ),
+    .i_wlast        ( wlast       ),
+    .i_wdata        ( wdata       ),
+    .o_bvalid       ( bvalid      ),
+    .i_bready       ( bready      ),
+    .i_arvalid      ( arvalid     ),
+    .o_arready      ( arready     ),
+    .i_araddr       ( araddr      ),
+    .i_arlen        ( arlen       ),
+    .o_rvalid       ( rvalid      ),
+    .i_rready       ( rready      ),
+    .o_rlast        ( rlast       ),
+    .o_rdata        ( rdata       ),
+
+    .o_ddr_ck_p     ( ddr_ck_p    ),
+    .o_ddr_ck_n     ( ddr_ck_n    ),
+    .o_ddr_cke      ( ddr_cke     ),
+    .o_ddr_cs_n     ( ddr_cs_n    ),
+    .o_ddr_ras_n    ( ddr_ras_n   ),
+    .o_ddr_cas_n    ( ddr_cas_n   ),
+    .o_ddr_we_n     ( ddr_we_n    ),
+    .o_ddr_ba       ( ddr_ba      ),
+    .o_ddr_a        ( ddr_a       ),
+    .o_ddr_dm       ( ddr_dm      ),
+    .io_ddr_dqs     ( ddr_dqs     ),
+    .io_ddr_dq      ( ddr_dq      )
 );
 
 // -------------------------------------------------------------------------------------
 //  MICRON DDR-SDRAM simulation model
 // -------------------------------------------------------------------------------------
 micron_ddr_sdram_model #(
-    .BA_BITS     ( BA_BITS     ),
-    .ROW_BITS    ( ROW_BITS    ),
-    .COL_BITS    ( COL_BITS    ),
-    .DQ_LEVEL    ( DQ_LEVEL    )
+    .BA_BITS     ( BA_BITS     ),   /// 2
+    .ROW_BITS    ( ROW_BITS    ),   /// 13
+    .COL_BITS    ( COL_BITS    ),   /// 11
+    .DQ_LEVEL    ( DQ_LEVEL    )    /// 1
 ) ddr_model_i (
     .Clk         ( ddr_ck_p    ),   /// clk
     .Clk_n       ( ddr_ck_n    ),   /// clk

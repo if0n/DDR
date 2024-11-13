@@ -8,127 +8,158 @@
 //--------------------------------------------------------------------------------------------------------
 
 module axi_self_test_master #(
-    parameter       A_WIDTH_TEST = 26,
-    parameter       A_WIDTH      = 26,
-    parameter       D_WIDTH      = 16,
-    parameter       D_LEVEL      = 1,
-    parameter [7:0] WBURST_LEN   = 8'd7,
-    parameter [7:0] RBURST_LEN   = 8'd7
+    parameter                   AW_TEST         = 26    ,
+    parameter                   AW              = 26    ,
+    parameter                   DW              = 16    ,
+    parameter                   D_LEVEL         = 1     ,
+    parameter   [7:0]           WBURST_LEN      = 8'd7  ,
+    parameter   [7:0]           RBURST_LEN      = 8'd7
 )(
-    input  wire               rstn,
-    input  wire               clk,
-    output wire               awvalid,
-    input  wire               awready,
-    output reg  [A_WIDTH-1:0] awaddr,
-    output wire [        7:0] awlen,
-    output wire               wvalid,
-    input  wire               wready,
-    output wire               wlast,
-    output wire [D_WIDTH-1:0] wdata,
-    input  wire               bvalid,
-    output wire               bready,
-    output wire               arvalid,
-    input  wire               arready,
-    output reg  [A_WIDTH-1:0] araddr,
-    output wire [        7:0] arlen,
-    input  wire               rvalid,
-    output wire               rready,
-    input  wire               rlast,
-    input  wire [D_WIDTH-1:0] rdata,
-    output reg                error,
-    output reg  [       15:0] error_cnt
+    input  wire                         rst_n           ,
+    input  wire                         clk             ,
+
+    output wire                         o_awvalid       ,
+    input  wire                         i_awready       ,
+    output reg      [AW-1:0]            o_awaddr        ,
+    output wire     [7:0]               o_awlen         ,
+    output wire                         o_wvalid        ,
+    input  wire                         i_wready        ,
+    output wire                         o_wlast         ,
+    output wire     [DW-1:0]            o_wdata         ,
+    input  wire                         i_bvalid        ,
+    output wire                         o_bready        ,
+
+    output wire                         o_arvalid       ,
+    input  wire                         i_arready       ,
+    output reg      [AW-1:0]            o_araddr        ,
+    output wire     [7:0]               o_arlen         ,
+    input  wire                         i_rvalid        ,
+    output wire                         o_rready        ,
+    input  wire                         i_rlast         ,
+    input  wire     [DW-1:0]            i_rdata         ,
+
+    output reg                          o_error         ,
+    output reg      [15:0]              o_error_cnt
 );
 
+///
+localparam  [AW:0]     ADDR_INC =  (1<<D_LEVEL)    ;
+/// -------------------------------------------------------------
+localparam  [2:0]       S_INIT  = 3'd0  ,
+                        S_AW    = 3'd1  ,
+                        S_W     = 3'd2  ,
+                        S_B     = 3'd3  ,
+                        S_AR    = 3'd4  ,
+                        S_R     = 3'd5  ;
+/// -------------------------------------------------------------
+reg     [3:0]           s_state                 ;
+wire                    s_aw_end                ;
+reg                     s_awaddr_carry          ;
+reg     [7:0]           s_w_cnt                 ;
 
-initial {awaddr, araddr} = 0;
-initial {error, error_cnt} = 0;
+wire    [AW:0]          s_araddr_next           ;
 
-wire       aw_end;
-reg        awaddr_carry = 1'b0;
-reg  [7:0] w_cnt = 8'd0;
+wire    [DW-1:0]        s_rdata_idle            ;
+/// -------------------------------------------------------------
+///
+assign o_awvalid        = s_state == S_AW;
+assign o_awlen[7:0]     = WBURST_LEN;
 
-localparam [2:0] INIT = 3'd0,
-                 AW   = 3'd1,
-                 W    = 3'd2,
-                 B    = 3'd3,
-                 AR   = 3'd4,
-                 R    = 3'd5;
+assign o_wvalid         = s_state == S_W;
+assign o_wlast          = s_w_cnt[7:0] == WBURST_LEN;
+assign o_wdata[DW-1:0]  = o_awaddr[DW-1:0];
 
-reg [2:0] stat = INIT;
+assign o_bready         = 1'b1;
 
-generate if(A_WIDTH_TEST<A_WIDTH)
-    assign aw_end = awaddr[A_WIDTH_TEST];
-else
-    assign aw_end = awaddr_carry;
-endgenerate
+assign o_arvalid        = s_state == S_AR;
+assign o_arlen[7:0]     = RBURST_LEN;
 
-assign awvalid = stat==AW;
-assign awlen = WBURST_LEN;
-assign wvalid = stat==W;
-assign wlast = w_cnt==WBURST_LEN;
-assign wdata = awaddr;
-assign bready = 1'b1;
-assign arvalid = stat==AR;
-assign arlen = RBURST_LEN;
-assign rready = 1'b1;
+assign o_rready         = 1'b1;
+///
+assign s_araddr_next[AW:0] = {1'b0, o_araddr[AW-1:0]} + ADDR_INC;
 
-localparam [A_WIDTH:0] ADDR_INC = (1<<D_LEVEL);
-wire [A_WIDTH:0] araddr_next = {1'b0,araddr} + ADDR_INC;
+assign s_aw_end = (AW_TEST < AW) ? o_awaddr[AW_TEST] : s_awaddr_carry;
 
-always @ (posedge clk or negedge rstn)
-    if(~rstn) begin
-        {awaddr_carry, awaddr} <= 0;
-        w_cnt <= 8'd0;
-        araddr <= 0;
-        stat <= INIT;
-    end else begin
-        case(stat)
-            INIT: begin
-                {awaddr_carry, awaddr} <= 0;
-                w_cnt <= 8'd0;
-                araddr <= 0;
-                stat <= AW;
-            end
-            AW: if(awready) begin
-                w_cnt <= 8'd0;
-                stat <= W;
-            end
-            W: if(wready) begin
-                {awaddr_carry, awaddr} <= {awaddr_carry, awaddr} + ADDR_INC;
-                w_cnt <= w_cnt + 8'd1;
-                if(wlast)
-                    stat <= B;
-            end
-            B: if(bvalid) begin
-                stat <= aw_end ? AR : AW;
-            end
-            AR: if(arready) begin
-                stat <= R;
-            end
-            R: if(rvalid) begin
-                araddr <= araddr_next[A_WIDTH-1:0];
-                if(rlast) begin
-                    stat <= AR;
-                    if(araddr_next[A_WIDTH_TEST])
-                        araddr <= 0;
+
+always @ (posedge clk or negedge rst_n)
+    if(!rst_n)
+        begin
+            o_awaddr[AW-1:0]    <= {AW{1'b0}};
+            s_awaddr_carry      <= 1'b0;
+            s_w_cnt[7:0]        <= 8'd0;
+            o_araddr[AW-1:0]    <= {AW{1'b0}};
+            s_state             <= S_INIT;
+        end
+    else begin
+        case(s_state)
+            ///
+            S_INIT:
+                begin
+                    o_awaddr[AW-1:0]    <= {AW{1'b0}};
+                    s_awaddr_carry      <= 1'b0;
+                    s_w_cnt[7:0]        <= 8'd0;
+                    o_araddr[AW-1:0]    <= {AW{1'b0}};
+                    s_state             <= S_AW;
                 end
-            end
+            ///
+            S_AW:
+                if(i_awready)
+                    begin
+                        s_w_cnt[7:0]    <= 8'd0;
+                        s_state         <= S_W;
+                    end
+            ///
+            S_W:
+                if(i_wready)
+                    begin
+                        {s_awaddr_carry, o_awaddr[AW-1:0]}  <= {s_awaddr_carry, o_awaddr[AW-1:0]} + ADDR_INC;
+                        s_w_cnt[7:0]    <= s_w_cnt[7:0] + 8'd1;
+                        if(o_wlast)
+                            s_state <= S_B;
+                    end
+            ///
+            S_B:
+                if(i_bvalid)
+                    s_state <= s_aw_end ? S_AR : S_AW;
+            ///
+            S_AR:
+                if(i_arready)
+                    s_state <= S_R;
+            ///
+            S_R:
+                if(i_rvalid)
+                    begin
+                        o_araddr[AW-1:0] <= s_araddr_next[AW-1:0];
+                        if(i_rlast)
+                        begin
+                            s_state <= S_AR;
+                            if(s_araddr_next[AW_TEST])
+                                o_araddr[AW-1:0] <= {AW{1'b0}};
+                        end
+                    end
         endcase
     end
 
 // ------------------------------------------------------------
 //  read and write mismatch detect
 // ------------------------------------------------------------
-wire [D_WIDTH-1:0] rdata_idle = araddr;
+assign s_rdata_idle[DW-1:0] = o_araddr[DW-1:0];
 
-always @ (posedge clk or negedge rstn)
-    if(~rstn) begin
-        error <= 1'b0;
-        error_cnt <= 16'd0;
-    end else begin
-        error <= rvalid && rready && rdata!=rdata_idle;
-        if(error)
-            error_cnt <= error_cnt + 16'd1;
-    end
+always @ (posedge clk or negedge rst_n)
+begin
+    if(~rst_n)
+        o_error   <= 1'b0;
+    else
+        o_error   <= i_rvalid && o_rready && (i_rdata[DW-1:0] != s_rdata_idle[DW-1:0]);
+end
+
+always @ (posedge clk or negedge rst_n)
+begin
+    if(~rst_n)
+        o_error_cnt[15:0]   <= 16'd0;
+    else if(o_error)
+        o_error_cnt[15:0]   <= o_error_cnt[15:0] + 16'd1;
+    /// else hold
+end
 
 endmodule
