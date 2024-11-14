@@ -60,18 +60,50 @@ module ddr_sdram_ctrl #(
     // DDR-SDRAM interface
     output wire                                                 o_ddr_ck_p          ,   // freq = F(i_drv_clk)/4
     output wire                                                 o_ddr_ck_n          ,
-    output wire                                                 o_ddr_cke           ,
-    output reg                                                  o_ddr_cs_n          ,
-    output reg                                                  o_ddr_ras_n         ,   /// row addr select / col addr select
-    output reg                                                  o_ddr_cas_n         ,
-    output reg                                                  o_ddr_we_n          ,
-    output reg      [BA_BITS-1:0]                               o_ddr_ba            ,   // 2    bank addr
-    output reg      [ROW_BITS-1:0]                              o_ddr_a             ,   // 13   row_addr / col_addr
+    output wire                                                 o_ddr_cke           ,   /// clock enable
+    output reg                                                  o_ddr_cs_n          ,   /// chip select
+    output reg                                                  o_ddr_ras_n         ,   /// row addr strobe
+    output reg                                                  o_ddr_cas_n         ,   /// col addr strobe
+    output reg                                                  o_ddr_we_n          ,   /// write enable
+    output reg      [BA_BITS-1:0]                               o_ddr_ba            ,   // 2    bank selection
+    output reg      [ROW_BITS-1:0]                              o_ddr_a             ,   // 13   addressing
     output wire     [DM_BITS-1:0]                               o_ddr_dm            ,   // 1    data mask
     inout           [DQS_BITS-1:0]                              io_ddr_dqs          ,   // 1    data strobe
     inout           [DQ_BITS-1:0]                               io_ddr_dq               // 8    data
 );
-    
+/// https://en.wikipedia.org/wiki/Synchronous_dynamic_random-access_memory
+
+///     Commands
+///     __      ___     ___     __
+///     CS      RAS     CAS     WE      BAn     A10     An
+///     H       x       x       x       x       x       x           Commend inhibit(no operation)
+///     L       H       H       H       x       x       x           No operation
+///     L       H       H       L       x       x       x           Burst terminate:stop a burst read or burst write in process
+///     L       H       L       H       bank    L       col         Read:read a burst of data from the currently active row
+///     L       H       L       H       bank    H       col         Read with auto precharge:as above, and precharge (close row) when done
+///     L       H       L       L       bank    L       col         Write:write a burst of data to the currently active row
+///     L       H       L       L       bank    H       col         Write with auto precharge:as above, and precharge (close row) when done
+///     L       L       H       H       bank    row--------         Active(activate):open a row for read and write commands
+///     L       L       H       L       bank    L       x           Precharge:deactivate(close)the current row of selected bank
+///     L       L       H       L       x       H       x           Precharge all:deactivate(close) the current row of all banks
+///     L       L       L       H       x       x       x           Auto refresh:refresh one row of each bank, using an internal counter.All banks must be precharged.
+///     L       L       L       L       0 0     mode-------         Load mode register:A0 through A9 are loaded to configure the DRAM chip.
+///                                                                     The most significant settings are CAS latency(2 or 3 cycles) and burst lenggth(1,2,4 or 8 cycles)
+
+/// Construction and operation
+/// A typical 512 Mbit SDRAM chip internally contains 4 independent 16 MB memory banks. Each bank is an array of 8192 rows of 16384 bits each.(2048 8-bit columns).
+/// A bank is either idle, active, or changing from one to the other.
+///
+/// The active command activates an idle bank.It presents a two-bit bank address(BA0-BA1) and a 13-bit row address(A0-A12), and causes a read of that row into the bank's array of all 16384 column sense amplifiers.
+/// This is also known as "opening" the row. This operation has the side effect of refreshing the dynamic(capacitive) memory storage cells of that row.
+///
+/// Once the row has been activated or "opened", reaa and write commands are possible to that row.
+/// Activation requires a minimum amount of time, called the row-to-column delay, or tRCD before reads or writes to it may occur.
+/// This time, rounded up to the next multiple of the clock period, specifies the minimum number of wait cycles between an active command, and a read or write command.
+/// During these wait cycles, additional commands may be sent to other banks; because each bank operates completely independently.
+///
+/// Both read and write commands require a column address. Because each chip accesses 8 bits of date a time
+
 localparam  [3:0]   S_RESET        = 4'd0,
                     S_IDLE         = 4'd1,
                     S_CLEARDLL     = 4'd2,
