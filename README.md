@@ -896,3 +896,4 @@ AXI4 总线的地址（awaddr和araddr）统一是字节地址，模块会根据
 * MICRON 公司提供的 DDR1 仿真模型: https://www.micron.com/products/dram/ddr-sdram/part-catalog/mt46v64m8p-5b
 * MT46V64M8 芯片手册: https://media-www.micron.com/-/media/client/global/documents/products/data-sheet/dram/ddr1/512mb_ddr.pdf?rev=4e1e995d6d2240e293286770f193d57d
 
+# DDR
