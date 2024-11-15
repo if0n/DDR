@@ -102,7 +102,74 @@ module ddr_sdram_ctrl #(
 /// This time, rounded up to the next multiple of the clock period, specifies the minimum number of wait cycles between an active command, and a read or write command.
 /// During these wait cycles, additional commands may be sent to other banks; because each bank operates completely independently.
 ///
-/// Both read and write commands require a column address. Because each chip accesses 8 bits of date a time
+/// Both read and write commands require a column address. Because each chip accesses 8 bits of date at a time,there are 2048 possible column addresses thus requiring only 11 address lines(A0-A9, A11).
+///
+/// When a read command is issued, the SDRAM will produce the corresponding output data on the DQ lines in time for the rising edge of the clock a few clock cycles later, depending on the configured CAS latency.
+/// Subsequent words of the burst will be produced in time for subsequent rising clock edges.
+///
+/// A write command is accompanied by the data to be written driven on to the DQ lines during the same rising clock edge.
+/// It is the duty of the memory controller to ensure that the SDRAM is not driving read data on to the DQ lines at the same time that is needs to drive write data on to those lines.
+/// This can be done by waiting until a read burst has finished, by terminating a read burst, or by using the DQM control line.
+///
+/// When the memory controller needs to access a different row, it must first return that bank's sense amplifiers to an idle state, ready to sense the next row.
+/// This is knowns as a "precharge" operations, or "closing" the row.
+/// A precharge may be commanded explicitly, or it may be performed automatically at the conclusion of a read of write operation.
+/// Again, there is a minimum time, the row precharge delay, tRP, which must elapse before that row is fully "closed" and so the bank is idle in order to receive another activate command on that bank.
+
+/// Although refreshing a row is an automatic side effect of activating it, there is a minimum time for this to happen, which requires a minimum row access time tRAS delay between an active command opening a row,
+/// and the corresponding parecharge command closing it.
+/// This limit is usually dwarfed by desired read and write commands to the row, so its value has little effect on typical performance.
+
+/// Command interactions
+/// The no operation command is always permitted, while the load mode register command requires that all banks be idle, and a delay afterword for the changes to take effect.
+/// The auto refresh command also requires that all banks be idle, and takes a refresh cycle time tRFC to return the chip to the idle state.(This time is usually equal to tRCD+tRP.)
+/// The only other command that is permitted on an idle bank is the active command. This takes, as mentioned above, tRCD before the row is fully open and can accept read and write commands.
+///
+/// When a bank is open, there are four commands permitted:read, write, burst terminate, and precharge. Read an write commands begin bursts, which can be interrupted by following commands.
+
+/// Interrupting a read burst
+/// A read, burst terminate, or precharge command may be issued at any time after a read command, and will interrupt the read burst after the configured CAS latency.
+/// So if a read command is issued on cycle 0, another read command is issued on cycle 2, and the CAS latency is 3,then the first read command will begin bursting data out during cycles 3 and 4,
+/// then the results from the second read command will appear beginning with cycle 5.
+///
+/// If the command issued on cycle 2 were burst terminate, or a precharge of the active bank, then no output would be generated during cycle 5.
+///
+/// Although the interrupting read may be to any active bank, a precharge command will only interrupt the read burst if it is to the same bank or all banks; a precharge command to a different bank will not interrupt a read burst.
+///
+/// Interrupting a read burst by a write command is possible, but more difficult.
+/// It can be done if the DQM signal is used to suppress output from the SDRAM so that the memory controller may drive data over the DQ lines to the SDRAM in time for the write operation.
+/// Because the effects of DQM on read data are delayed by two cycles, but the effects of DQM on write data are immediate, DQM must be raised(to mask the read data) beginning at least two cycles before write command
+/// but must be lowered for the cycle of the write command(assuming the write command is intended to have an effect).
+///
+/// Doing this in only two clock cycles requires careful coordination between the time the SDRAM takes to turn off its output on a clock edge and the time the data must be supplied as input to the SDRAM for the write on the following clock edge.
+/// If the clock frequency if too high to allow sufficient time, three cycles may be required.
+///
+/// If the read command includes auto-precharge, the precharge begins the same cycle as the interrupting command.
+
+/// Burst ordering
+/// A modern microprocessor with a cache will generally access memory in units of cache lines.
+/// To transfer a 64-byte cache line requires 8 consecutive accesses to a 64-bit DIMM, which can all be triggered by a single read or write command by configuring the SDRAM chips,using the mode register, to perform eight-word bursts.
+/// A cache line fetch is typically triggered by a read from a particular address, and SDRAM allows the "critical word" of the cache line to be transferred first.
+/// ("Word" here refers to the width of the SDRAM chip or DIMM, which is 64 bits for a typical DIMM.) SDRAM chips support two possible conventions for the ordering of the remaining words in the cache line.
+///
+/// Burst always access an aligned block of BL consecutive words beginning on a multiple of BL. So, for example, a four-word burst access to any column address from four to seven will return words four to seven.
+/// The ordering, however, depends on the requested address, and the configured burst type option:sequential or interleavec. Typically, a memory controller will require one or the other.
+/// When the burst length is one or two, the burst type does not matter. For a burst length of one, the requested word is the only word accessed.
+/// For a burst length of two, the requested word is accessed first, and the other word in the aligned block is accessed second. This is the following word if an even address was specified, and the previous word if an odd address was specified.
+///
+/// For the sequential burst mode, later words are accessed in increasing address order, wrapping back to the start of the block when the end is reached.
+/// So, for example, for a burst lenght of four, and a requested column address of five, the words would be accessed in the order 5-6-7-4. If the burst lenght were eight, the access order would be 5-6-7-0-1-2-3-4.
+/// This is done by adding a counter to the column address, and ignoring carries past the burst lenght.
+/// The interleaved burst mode computes the address using an exclusive or operation between the counter and the address.
+/// Usng the same starting address of five, a four-word burst would return words in the order 5-4-7-6.An eight-word burst would be 5-4-7-6-1-0-3-2.
+/// Although more confusing to humans, this can be easier to implement in haraware, and is preferred by Intel for its microprocessors.
+///
+/// If the requested column address is at the start of a block, both burst modes (sqeuential and interleaved) return data in the same sequential sequence 0-1-2-3-4-5-6-7.
+/// The difference onlu matters if fetching a cache line from memory in critical-ward-first order.
+
+/// Mode register
+
+
 
 localparam  [3:0]   S_RESET        = 4'd0,
                     S_IDLE         = 4'd1,
