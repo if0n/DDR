@@ -1,2 +1,2 @@
-current_design "flow_bucket_ctrl"
-clock -name "rr_top.clk" -domain "d0" -tag "SYS_CLK" -period 1.25
+current_design "ddr_sdram_ctrl"
+clock -name "ddr_sdram_ctrl.i_drv_clk" -domain "d0" -tag "SYS_CLK" -period 3.33

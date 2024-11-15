@@ -1,4 +1,4 @@
-set DESINE_NAME   hqos_flow_bucket_ctrl
+set DESINE_NAME   ddr_sdram_ctrl
 
 set_option enableV05 yes
 set_option enableSV true

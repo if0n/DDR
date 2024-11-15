@@ -1,27 +1,26 @@
 ################################################################################
-+incdir+../nv_sim/common
-+incdir+../nv_sim/tb_fbc
-+incdir+../nv_src/common
-+incdir+../nv_src/include
++incdir+../0_SIM/common
++incdir+../0_SRC/common
++incdir+../0_SRC/include
 
-../nv_src/include/nvme_define.vh
+../0_SIM/common/glbl.v
+../0_SIM/common/sv_assert.sv
+
+../0_SRC/common/cm_hyper_pipe.v
+../0_SRC/common/cm_ram_simple_dual_one_clock.v
+../0_SRC/common/cm_vr_sfifo_ctrl.v
+../0_SRC/common/cm_vr_sfifo_ctrl_wrapper.v
+
+../0_SRC/include/ddr_define.vh
+
+../0_SRC/memory_wrap/xfpga_wrapper/xfpga_sdpram_wrapper.v
 
 #tb path
-../nv_sim/tb_fbc/glbl.v
+../0_SIM/tb_ddr_v1/axi_self_test_master.v
+../0_SIM/tb_ddr_v1/micron_ddr_sdram_model.v
+../0_SIM/tb_ddr_v1/tb_ddr_sdram_ctrl.v
 
-../nv_sim/tb_fbc/tb_yuf.v
-../nv_sim/tb_fbc/sim_service_hqos_fbc.v
+../0_SRC/rtl_ddr_v1/ddr_sdram_ctrl.v
+../0_SRC/rtl_ddr_v1/sdpram_wrapper.v
+../0_SRC/rtl_ddr_v1/sfifo_wrapper.v
 
-
-../nv_src/hqos_common/hqos_ram_simple_dual_one_clock.v
-../nv_src/hqos_common/hqos_vr_sfifo_ctrl.v
-../nv_src/hqos_common/hqos_vr_sfifo_ctrl_wrapper.v
-
-../nv_src/hqos_flow_ctrl/common/hqos_hyper_pipe.v
-
-../nv_src/hqos_flow_ctrl/qos_flow_bucket_ctrl/hqos_fb_alg_pass_judge.v
-../nv_src/hqos_flow_ctrl/qos_flow_bucket_ctrl/hqos_flow_bucket_ctrl.v
-../nv_src/hqos_flow_ctrl/qos_flow_bucket_ctrl/hqos_sdpram_wrapper.v
-../nv_src/hqos_flow_ctrl/qos_flow_bucket_ctrl/hqos_sfifo_wrapper.v
-
-#nvme mem
