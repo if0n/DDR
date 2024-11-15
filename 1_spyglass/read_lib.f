@@ -1,0 +1,1 @@
+read_file -type gateslib /StorageServer/basedata/lib/TSMC/n28/mem/regfile/dual_port/ts6n28hpcpsvta512x64m4fwbr_200b/NLDM/ts6n28hpcpsvta512x64m4fwbr_200b_ssg0p81vm40c.lib

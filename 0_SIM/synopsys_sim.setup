@@ -1,0 +1,2 @@
+xil_defaultlib:vcs_lib/xil_defaultlib
+OTHERS=/StorageServer/public/DV_Flow/lib/vivado_lib/vivado_2020_2/vcs/vcs_R_2020_12/synopsys_sim.setup
