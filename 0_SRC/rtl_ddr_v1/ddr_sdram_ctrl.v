@@ -88,7 +88,7 @@ module ddr_sdram_ctrl #(
 ///     L       L       H       L       x       H       x           Precharge all:deactivate(close) the current row of all banks
 ///     L       L       L       H       x       x       x           Auto refresh:refresh one row of each bank, using an internal counter.All banks must be precharged.
 ///     L       L       L       L       0 0     mode-------         Load mode register:A0 through A9 are loaded to configure the DRAM chip.
-///                                                                     The most significant settings are CAS latency(2 or 3 cycles) and burst lenggth(1,2,4 or 8 cycles)
+///                                                                     The most significant settings are CAS latency(2 or 3 cycles) and burst length(1,2,4 or 8 cycles)
 
 /// Construction and operation
 /// A typical 512 Mbit SDRAM chip internally contains 4 independent 16 MB memory banks. Each bank is an array of 8192 rows of 16384 bits each.(2048 8-bit columns).
@@ -168,6 +168,47 @@ module ddr_sdram_ctrl #(
 /// The difference onlu matters if fetching a cache line from memory in critical-ward-first order.
 
 /// Mode register
+/// Single data rate SDRAM has a single 10-bit programmable mode register. Later double-data-rate SDRAM standards add additional mode registers, addressed using the bank address pins.
+/// For SDR SDRAM, the bank address pins and address lines A10 and above are ignored, but should be zero during a mode register write.
+///
+/// The bits are M9 through M0, presented on address lines A9 through A0 during a load mode register cycle.
+/// -M9: Write burst mode. If 0, writes use the read burst length and mode. If 1, all writes are non-burst(single location).
+/// -M8, M7: Operating mode. Reserved, and must be 00.
+/// -M6, M5, M4: CAS latency. Generally only 010(CL2) and 011(CL3) are legal.Specifies the number of cycles between a read command and data output from the chip.
+///  The chip has a fundamental limit on this value in nanoseconds; during initialization, the memory controller must use its knowledge of the clock frequency to translate that limit into cycles.
+/// -M3: Burst type. 0-requests sequential burst ordering, while 1 requests interleaved burst ordering.
+/// -M2, M1, M0: Burst length. Values of 000, 001, 010 and 011 specify a burst size of 1,2,4 or 8 words, respectively. Each read(adn write, if M9 is 0)will perform that many accesses, unless interrupted by a burst stop or other command.
+///  A value of 111 specifies a full-row burst. The burst will continue until interrupted. Full-row bursts are only permitted with the sequential burst type.
+///
+/// Later DDR SDRAM standards use more mode register bits, and provide addtional mode registers called "extended mode registers". The register number is encoded on the bank address pins during the load mode register command.
+/// For example. DDR2 SDRAM has a 13-bit mode register, a 13-bit extended mode register No.1(EMR1), and a 5-bit extended mode register No.2(EMR2).
+
+/// Auto refresh
+/// It is possible to refresh a RAM chip by opening and closing(activating and precharging) each row in each bank. However, to simplify the memory controller, SDRAM chips support an "auto refresh" command, which performs these operations to one row in each bank simultaneously.
+/// The SDRAM also maintains an internal counter, which iterates over all possible rows. The memory controller must simply issue a sufficient number of auto refresh commands(one per row, 8192 in the example we have have using) every refresh interval(tREF=64ms is a common value).
+/// All banks must be idle(closed, precharged) when this command is issued.
+
+/// Low power modes
+/// As mentioned, the clock enable(CKE) input can be used to  effectively stop the clock to an SDRAM.
+/// The CKE input is sampled each rising edge of the clock, and if it is low, the following rising edge of the clock is ignored for all purposes other than checking CKE.
+/// As long as CKE is low, it is permissible to change the clock rate, or even stop the clock entirely.
+///
+/// If CKE is lowered while the SDRAM is performing operations, it simply "freezes" in place until CKE is raised again.
+///
+/// If the SDRAM is idle(all banks precharged, no commands in process) when CKE is lowered, the SDRAM automatically enters power-down mode, consuming minimal power until CKE is raised again.
+/// This must not last longer than the maximum refresh interval tREF, or memory contents may be lost. It is legal to stop the clock entirely during this time for additional power savings.
+///
+/// Finally, if CKE is lowered at the same time as an auto-refresh command is sent to the SDRAM, the SDRAM enters self-refresh mode. This is like power down, but the SDRAM uses an on-chip timer to generate internal refresh cycles as necessary.
+/// The clock may be stopped during this time.
+/// While self-refresh mode consumes slightly more power than power-down mode, it allows the memory controller to be disabled entirely, which commonly more than makes up the difference.
+///
+/// SDRAM designed for battery-powered devices offers some additional power-saving options.
+/// One is temperature-dependent refresh; an on-chip temperature sensor reduces the refresh rate at lower temperatures, rather than always running it at the worst-case rate.
+/// Another is selective refresh, which limits self-refresh to a portion of the DRAM array. The fraction which is refreshed is configured using an extended mode register.
+/// The third, implemented in Mobile DDR(LPDDR) and LPDDR2 is "deep power down" mode, which invalidates the memory and requires a full reinitialization to exit from.
+/// This is activated by sending a "burst terminate" command while lowering CKE.
+
+/// DDR SDRAM prefetch architecture
 
 
 
