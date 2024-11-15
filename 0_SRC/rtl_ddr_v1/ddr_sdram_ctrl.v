@@ -76,7 +76,7 @@ module ddr_sdram_ctrl #(
 ///     Commands
 ///     __      ___     ___     __
 ///     CS      RAS     CAS     WE      BAn     A10     An
-///     H       x       x       x       x       x       x           Commend inhibit(no operation)
+///     H       x       x       x       x       x       x           Command inhibit(no operation)
 ///     L       H       H       H       x       x       x           No operation
 ///     L       H       H       L       x       x       x           Burst terminate:stop a burst read or burst write in process
 ///     L       H       L       H       bank    L       col         Read:read a burst of data from the currently active row
@@ -177,7 +177,7 @@ module ddr_sdram_ctrl #(
 /// -M6, M5, M4: CAS latency. Generally only 010(CL2) and 011(CL3) are legal.Specifies the number of cycles between a read command and data output from the chip.
 ///  The chip has a fundamental limit on this value in nanoseconds; during initialization, the memory controller must use its knowledge of the clock frequency to translate that limit into cycles.
 /// -M3: Burst type. 0-requests sequential burst ordering, while 1 requests interleaved burst ordering.
-/// -M2, M1, M0: Burst length. Values of 000, 001, 010 and 011 specify a burst size of 1,2,4 or 8 words, respectively. Each read(adn write, if M9 is 0)will perform that many accesses, unless interrupted by a burst stop or other command.
+/// -M2, M1, M0: Burst length. Values of 000, 001, 010 and 011 specify a burst size of 1,2,4 or 8 words, respectively. Each read(and write, if M9 is 0)will perform that many accesses, unless interrupted by a burst stop or other command.
 ///  A value of 111 specifies a full-row burst. The burst will continue until interrupted. Full-row bursts are only permitted with the sequential burst type.
 ///
 /// Later DDR SDRAM standards use more mode register bits, and provide addtional mode registers called "extended mode registers". The register number is encoded on the bank address pins during the load mode register command.
