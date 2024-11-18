@@ -76,19 +76,19 @@ module ddr_sdram_ctrl #(
 ///     Commands
 ///     __      ___     ___     __
 ///     CS      RAS     CAS     WE      BAn     A10     An
-///     H       x       x       x       x       x       x           Command inhibit(no operation)
-///     L       H       H       H       x       x       x           No operation
+///     H       x       x       x       x       x       x           DSEL:       Command inhibit(no operation)
+///     L       H       H       H       x       x       x           NOP:        No operation
 ///     L       H       H       L       x       x       x           Burst terminate:stop a burst read or burst write in process
-///     L       H       L       H       bank    L       col         Read:read a burst of data from the currently active row
-///     L       H       L       H       bank    H       col         Read with auto precharge:as above, and precharge (close row) when done
-///     L       H       L       L       bank    L       col         Write:write a burst of data to the currently active row
-///     L       H       L       L       bank    H       col         Write with auto precharge:as above, and precharge (close row) when done
-///     L       L       H       H       bank    row--------         Active(activate):open a row for read and write commands
-///     L       L       H       L       bank    L       x           Precharge:deactivate(close)the current row of selected bank
-///     L       L       H       L       x       H       x           Precharge all:deactivate(close) the current row of all banks
-///     L       L       L       H       x       x       x           Auto refresh:refresh one row of each bank, using an internal counter.All banks must be precharged.
-///     L       L       L       L       0 0     mode-------         Load mode register:A0 through A9 are loaded to configure the DRAM chip.
-///                                                                     The most significant settings are CAS latency(2 or 3 cycles) and burst length(1,2,4 or 8 cycles)
+///     L       H       L       H       bank    L       col         READ:       read a burst of data from the currently active row
+///     L       H       L       H       bank    H       col         READAP:     Read with auto precharge:as above, and precharge (close row) when done
+///     L       H       L       L       bank    L       col         WRITE:      write a burst of data to the currently active row
+///     L       H       L       L       bank    H       col         WRITEAP:    Write with auto precharge, as above, and precharge (close row) when done
+///     L       L       H       H       bank    row--------         ACT:        Active(activate):open a row for read and write commands
+///     L       L       H       L       bank    L       x           PRE:        Precharge:deactivate(close)the current row of selected bank
+///     L       L       H       L       x       H       x           PALL:       Precharge all:deactivate(close) the current row of all banks
+///     L       L       L       H       x       x       x           CBR:        Auto refresh:refresh one row of each bank, using an internal counter.All banks must be precharged.
+///     L       L       L       L       0 0     mode-------         MRS:        Load mode register:A0 through A9 are loaded to configure the DRAM chip.
+///                                                                             The most significant settings are CAS latency(2 or 3 cycles) and burst length(1,2,4 or 8 cycles)
 
 /// Construction and operation
 /// A typical 512 Mbit SDRAM chip internally contains 4 independent 16 MB memory banks. Each bank is an array of 8192 rows of 16384 bits each.(2048 8-bit columns).
@@ -209,7 +209,79 @@ module ddr_sdram_ctrl #(
 /// This is activated by sending a "burst terminate" command while lowering CKE.
 
 /// DDR SDRAM prefetch architecture
+/// DDR SDRAM employs prefecth architecture to allow quick and easy access to multiole data data words located on a common physical row in the memory.
+///
+/// The prefecht architecture takes advantage of the specific characteristics of memory accesses to DRAM.Typical DRAM memory operations involve three phases:
+/// bitline precharge, row access, column access. Row access is the heart of a read operation, as it involves the careful sensing of the tiny signals in DRAM memory cells;
+/// it is the slowest phase of memory operation. Howewer, once a row is read, subsequent column accesses to that same row can be very quick, as the sense amplifiers also act as latches.
+/// For reference, a row of a 1 Gbit DDR3 device is 2048 bits wide, so internally 2048 bits are read into 2048 separate sense amplifiers during the raw access phase.
+/// Row accesses might take 50 ns, depending on the speed of the DRAM, whereas column accesses off an open row are less than 10 ns.
+///
+/// Traditional DRAM architectures have long supported fast column access to bits on an open row. For an 8-bit-wide memory chip with a 2048 bit wide row, accesses to any of the
+/// 256 datawords(2048/8) on the row can be very quick, provided no intervening accesses to other rows occur.
+///
+/// The drawback of the older fast column access method was that a new column address had to be sent for each additional dataword on the row.
+/// The address bus had to operate at the same frequency as the data bus. Prefetch architecture simplifies this process by allowing a single address request to result in multiple data wards.
+///
+/// In a prefetch buffer architecture, when a memory access occurs to a row the buffer grabs a set of adjacent data words on the row and reads them out("bursts" them)
+/// in rapid-fire sequence on the IO pins, without the need for individual column address requests.
+/// This assumes the CPU wants adjacent datawords in memory, which in practice is very often the case.
+/// For instance, in DDR1, two adjacent data words will be read from each chip in the same clock cycle and placed in the pre-fetch buffer.
+/// Each word will then be transmitted on consecutive rising and falling edges of the clock cycle.
+/// Similarly, in DDR2 with a 4n pre-fetch buffer, four consecutive data words are read an placed in buffer while a clock, which is twice faster than the internal clock of DDR,
+/// transmits each of the word in consecutive rising and falling edge of the faster external clock.
+///
+/// The prefetch buffer depth can also be thought of as the ratio between the core memory frequency and the IO frequency.
+/// In an 8n prefetch architecture (such as DDR3), the IOs will operate 8 times faster than the memory core(each memory access results in a burst of 8 datawords on the IOs).
+/// Thus, a 200 MHz memory core is combined with IOs that each operate eight times faster(1600 megabits per second).
+/// If the memory has 16 IOs, the total read bandwidth would be 200 MHz x 8 datawords/access x 16 IOs = 25.6 gigabits per second(Gbit/s) or 3.2 gigabytes per second(GB/S).
+/// Modules with multiple DRAM chips can provide correspondingly higher bandwidth.
+///
+/// Each generation of SDRAM has a different prefetch buffer size:
+/// -DDR SDRAM's  prefetch buffer size is 2n (two datawords per memory access)
+/// -DDR2 SDRAM's prefetch buffer size is 4n (four datawords per memory access)
+/// -DDR3 SDRAM's prefetch buffer size is 8n (eight datawords per memory access)
+/// -DDR4 SDRAM's prefetch buffer size is 8n (eight datawords per memory access)
+/// -DDR5 SDRAM's prefetch buffer size is 8n; there is an additional mode of 16n
 
+/// Generations
+/// SDR
+/// Originally simply know as SDRAM, single data rate SDRAM can accept one command and transfer one word of data per clock cycle.
+///
+/// Use of the data bus is intricate and thus requires a complex DRAM controller circuit. This is because data written to the DRAM must be presented in the same cycle as the write commands,
+/// but reads produce output 2 or 3 cycle after the read command. The DRAM controller must ensure that the data bus is never required for a read and a write at the same time.
+///
+/// Typical SDR SDRAM clock rates are 66, 100, and 133 MHz(periods of 15, 10, and 7.5ns), respectively denoted PC66, PC 100, and PC133. Clock rates up to 200 Mhz were available.
+///
+/// This type of SDRAM is slower than the DDR variants, because only one word of data is transmitted per clock cycle(single data rate).
+
+/// DDR
+/// While the access latency of DRAM is fundamentally limited by the DRAM array, DRAM has very high potential bandwidth because each internal read is actually a row of many thousands of bits.
+/// To make more of this bandwidth available to users, a double data rate interface was developed. This uses the same commands, accepted once per cycle, but reads or writes two words of data per clock cycle.
+/// The DDR interface accomplished this by reading and writing data on both the rising and falling edges of the clock signal.
+///
+/// DDR SDRAM (sometimes called DDR1 for greater clarity) doubles the minimum read or write unint; every access refers to at least two consecutive words.
+
+/// DDR2
+/// DDR2 SDRAM is very similar to DDR SDRAM, but doubles the minimum read or write unit again, to four consecutive words. The bus protocol was also simplified to allow higher performance operation.
+/// (In particular, the "busrst terminate" command is deleted.) This allows the bus rate of the SDRAM to be doubled without increasing the clock rate of internal RAM operations;
+/// instead, internal operations are performed in units four times as wide as SDRAM. Also, an extra bank address pin(BA2) was added to allow eight banks on large RAM chips.
+
+/// DDR3
+/// DDR3 continues the trend, doubling the minimum read or write unit to eight consecutive words. This allows another doubling of bandwidth and external bus rate without having to chage the clock rate of internal operations,
+/// just the width. To maintain 800-1600 M transfers/s (both edges of 400-800 MHz clock), the internal RAM array has to perform 100-200 M fetches per second.
+///
+/// Again, with every doubling, the downside is the increased latency.As with all DDR SDRAM generations, commands are still restricted to one clock edge and command latencies are given in terms of clock cycles,
+/// which are half the speed of the usually quoted transfer rate(a CAS latency of 8 with DDR3-800 is 8/400MHz = 20ns, exactly the same latency of CAS2 on PC100 SDR SDRAM).
+
+/// DDR4
+/// DDR4 SDRAM is the successor to DDR3 SDRAM. It was revealed at the Intel Developer Forum in San Francisco in 2008, and was due to be released to market during 2011.
+///
+/// DDR4 did not double the internal prefetch width again, but uses the same 8n prefetch as DDR3. Thus, it will be necessary to interleave reads from several banks to keep the data bus busy.
+
+/// DDR5
+/// In March 2017, JEDEC announced a DDR5 standard is under development, but provided no details except for the goals of doubling the bandwidth of DDR4, reducing power consumption, and publishing the standard in 2018.
+/// The standard was released on 14 July 2020.
 
 
 localparam  [3:0]   S_RESET        = 4'd0,
