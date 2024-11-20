@@ -353,18 +353,18 @@ module ddr_sdram_ctrl #(
 /// - Power Down
 /// - Multibank Operation
 
-/// trrd
+/// trrd        RAS# to RAS# delay
 /// trcd        RAS# to CAS# delay
 /// tccd
 /// tWR
-/// trp         RAS# Pre charge
+/// trp         RAS# Precharge
 /// tras        RAS# active time
 /// CL          CAS# latency
 /// BL          Burst Lenght
 /// tDQZ
 /// tDPL
 /// tDAL
-/// tRC
+/// trc         RAS# Cycle Time
 
 
 localparam  [3:0]   S_RESET        = 4'd0,
