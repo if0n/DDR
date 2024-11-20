@@ -284,6 +284,89 @@ module ddr_sdram_ctrl #(
 /// The standard was released on 14 July 2020.
 
 
+/// http://developer.intel.com/technology/memory/pc133sdram/spec/sdram133.pdf
+/// 3.4 Power-Up and initialization Sequence
+/// 3.4.1 Power Up Sequence
+/// The SDRAM should be initialized by the following sequence of operations:
+/// 1. Clock will be applied at power up along with power(clock frequency will be unknown).
+/// 2. The clock will stabilize within 100usec before the first command to SDRAM is attempted.
+/// 3. All the control inputs, RAS#/CAS#/WE#/CS# will be held in an undefined state(either valid high or low) during reset.
+///     After reset is complete CS# will be held inactive before the first access to SDRAM is attempted. All other address and control signals will be driven to a valid state.
+/// 4. The levels on all the address inputs should be ignored.(All the address inputs can be indeterminate.)
+///
+/// 3.4.2 Initialization Sequence
+/// The initialization sequence can be issued at anytime. Following the initialization sequence, the device must be ready for full functionality. SDRAM devices are initialized by the following sequence:
+/// 1. At least one NOP cycle will be issued after the 1msec device deselect.
+/// 2. A minimum pouse of 200usec will be provided after the NOP.
+/// 3. A precharge all(PALL) will be issued to the SDRAM.
+/// 4. 8 auto refresh(SBR) refresh cycles will be provided.
+/// 5. A mode register set(MRS) cycle will be issued to program the SDRAM parameters(e.g., Burst lenght, CAS# latency etc.)
+/// 6. After MRS the device should be ready for full functionality within 3 clocks after Tmrd is met.
+///
+/// 3.5 Precharge Selected Bank
+/// The precharge operation should be performed on the active bank when precharge selected bank command is issued.
+/// When the precharge command is issued with address A10 low, A11 select the bank to be precharged.
+/// At the end of the precharge selected bank command the selected bank should be in idle state after the minimum tRP is met.
+///
+/// 3.6 Precharge All
+/// All the banks shoule be precharged at the same time when this command is issued. When the precharge command is issued with address A10 high then all the banks will be precharged.
+/// At the end of the precharge all command all the banks should be in idle state after the minimum tRP is met.
+///
+/// 3.7 NOP and Device Deselect
+/// The device should be deselected by deactivating the CS# signal. In this mode SDRAM should ignore all the control inputs.
+/// The SDRAM are put in NOP mode when CS# is active and by deactivating RAS#, CAS# and WE#. For both Deselect and NOP the device should finish the current operation when this command is issued.
+///
+/// 3.8 Row active
+/// This command selects a row in a specified bank of the device. Read and write operations can only be initiated on this activated bank after the minimum tRCD time is elapsed from the activate command.
+///
+/// 3.9 Read Bank
+/// This command is used after the row activate command to initiate the burst read of data. The read command is initiated by activating CS#, CAS# and deasserting WE#
+/// at the same clock sampling(rising) edge. The length of the burst and the CAS# latency time will be determined by the values programmed during the MRS command.
+///
+/// 3.10 Write Bank
+/// This command is used after the row activate command to initiate the burst write of data. The write command is initialted by activating CS#, CAS# and WE#
+/// at the same clock sampling(rising) edge.The length of the burst will be determined by the values programmed during the MRS command.
+///
+/// 3.11 Mode Register Set Command
+/// This command programs the SDRAM for the desired operation mode. This command should be used after power up as defined in the power up sequence before the actual operation of the SDRMA is initiated.
+/// The functionality of the SDRAM device can be altered by re-programming the mode register through the execution of Mode Register Set Command.
+/// All the banks should be precharged(i.e., in idle state)before the MRS command can be issued.
+
+/// 4.0 Essential Functionality for the "PC SDRAM" Device
+/// The essential functionality that is required for the "PC SDRAM" device is described below:
+/// - Burst Read
+/// - Burst Write
+/// - Multi bank ping pong access
+/// - Burst Read with Autoprecharge
+/// - Burst Write with Autoprecharge
+/// - Burst Read terminated with precharge
+/// - Burst Write terminated with precharge
+/// - Burst Read terminated with another Burst Read/Write
+/// - Burst Write terminated with another Burst Write/Read
+/// - DQM# masking
+/// - Fastest command to command delay of 1 clock
+/// - Precharge All command
+/// - Auto Refresh
+/// - CL=2,3
+/// - Burst Length 1,2 and 4
+/// - Self Refresh Command
+/// - Power Down
+/// - Multibank Operation
+
+/// trrd
+/// trcd        RAS# to CAS# delay
+/// tccd
+/// tWR
+/// trp         RAS# Pre charge
+/// tras        RAS# active time
+/// CL          CAS# latency
+/// BL          Burst Lenght
+/// tDQZ
+/// tDPL
+/// tDAL
+/// tRC
+
+
 localparam  [3:0]   S_RESET        = 4'd0,
                     S_IDLE         = 4'd1,
                     S_CLEARDLL     = 4'd2,
